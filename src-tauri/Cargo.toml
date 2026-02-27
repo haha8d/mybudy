@@ -1,0 +1,45 @@
+[package]
+name = "mybudy"
+version = "0.1.0"
+description = "AI Assistant with floating button interface"
+authors = ["MyBudy Team"]
+edition = "2021"
+rust-version = "1.70"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-shell = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-http = "2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.35", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1.0"
+uuid = { version = "1.6", features = ["v4"] }
+base64 = "0.21"
+once_cell = "1.19"
+dirs = "5.0"
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "chrono"] }
+
+# HTTP Client
+reqwest = { version = "0.11", features = ["json"] }
+
+# File operations
+walkdir = "2.4"
+
+# Screen capture
+screenshots = "0.8"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
