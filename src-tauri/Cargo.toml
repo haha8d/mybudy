@@ -43,3 +43,7 @@ screenshots = "0.8"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+# Windows specific
+[target.'cfg(windows)'.build-dependencies]
+tauri-winres = "0.1"
