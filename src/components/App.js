@@ -1,5 +1,6 @@
 import Sidebar from './Sidebar.js'
 import ChatArea from './ChatArea.js'
+import WelcomeScreen from './WelcomeScreen.js'
 import { getChats, createChat, deleteChat } from '../stores/chatStore.js'
 import { getConfig } from '../stores/configStore.js'
 
@@ -8,19 +9,39 @@ export default class App {
     this.currentChat = null
     this.chats = []
     this.config = null
+    this.showWelcome = true
   }
 
   async mount(container) {
     this.container = container
+    
+    // Check if first time
+    const hasSeenWelcome = localStorage.getItem('mybudy-welcome-seen')
+    if (!hasSeenWelcome) {
+      this.showWelcomeScreen()
+    } else {
+      this.showMainApp()
+    }
+  }
+
+  showWelcomeScreen() {
+    this.welcomeScreen = new WelcomeScreen({
+      onStart: () => {
+        localStorage.setItem('mybudy-welcome-seen', 'true')
+        this.welcomeScreen.unmount()
+        this.showMainApp()
+      }
+    })
+    this.welcomeScreen.mount(this.container)
+  }
+
+  showMainApp() {
     this.container.innerHTML = `
       <div class="app">
         <div class="sidebar-container"></div>
         <div class="chat-container"></div>
       </div>
     `
-
-    // Load config
-    this.config = await getConfig()
 
     // Initialize components
     this.sidebar = new Sidebar({
@@ -37,7 +58,7 @@ export default class App {
     this.chatArea.mount(this.container.querySelector('.chat-container'))
 
     // Load chats
-    await this.loadChats()
+    this.loadChats()
   }
 
   async loadChats() {
