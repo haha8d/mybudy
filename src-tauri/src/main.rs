@@ -20,13 +20,9 @@ fn main() {
         .plugin(tauri_plugin_http::init())
         .setup(|app| {
             // Initialize database
-            let app_handle = app.handle();
-            tauri::async_runtime::block_on(async {
-                if let Err(e) = db::init_database(&app_handle).await {
-                    eprintln!("Failed to initialize database: {}", e);
-                    // 数据库初始化失败不阻止应用启动
-                }
-            });
+            if let Err(e) = db::init_database() {
+                eprintln!("Failed to initialize database: {}", e);
+            }
 
             // Initialize config
             if let Err(e) = config::init_config() {

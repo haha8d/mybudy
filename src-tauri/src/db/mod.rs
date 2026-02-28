@@ -1,54 +1,34 @@
-use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite};
-use tauri::{AppHandle, Manager};
-use once_cell::sync::OnceCell;
+use rusqlite::{Connection, Result as SqliteResult};
 use std::path::PathBuf;
+use once_cell::sync::OnceCell;
+use std::sync::Mutex;
 
 pub mod chat;
 pub mod message;
 
-static POOL: OnceCell<Pool<Sqlite>> = OnceCell::new();
+static CONN: OnceCell<Mutex<Connection>> = OnceCell::new();
 
-pub async fn init_database(_app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    // Windows 上使用文档目录，避免权限问题
+pub fn init_database() -> Result<(), Box<dyn std::error::Error>> {
+    // Windows 上使用文档目录
     let app_dir = dirs::document_dir()
         .unwrap_or_else(|| std::env::temp_dir())
         .join("MyBudy");
     
     eprintln!("Creating app directory: {}", app_dir.display());
     
-    // 确保目录存在，如果不存在则创建
-    match std::fs::create_dir_all(&app_dir) {
-        Ok(_) => eprintln!("Directory created or already exists"),
-        Err(e) => {
-            eprintln!("Failed to create directory: {}, using temp dir", e);
-            let temp_dir = std::env::temp_dir().join("MyBudy");
-            std::fs::create_dir_all(&temp_dir)?;
-            return init_db_in_dir(temp_dir).await;
-        }
-    }
+    // 创建目录
+    std::fs::create_dir_all(&app_dir)?;
     
-    init_db_in_dir(app_dir).await
-}
-
-async fn init_db_in_dir(app_dir: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     let db_path = app_dir.join("mybudy.db");
+    eprintln!("Database path: {}", db_path.display());
     
-    eprintln!("Database file path: {}", db_path.display());
+    // 打开或创建数据库
+    let conn = Connection::open(&db_path)?;
     
-    // 使用简单的相对路径格式
-    let db_url = format!("sqlite:{}", db_path.to_string_lossy());
+    eprintln!("Database opened successfully");
     
-    eprintln!("Connecting to: {}", db_url);
-    
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect(&db_url)
-        .await?;
-    
-    eprintln!("Connected successfully, creating tables...");
-    
-    // Create tables
-    sqlx::query(
+    // 创建表
+    conn.execute(
         r#"
         CREATE TABLE IF NOT EXISTS chats (
             id TEXT PRIMARY KEY,
@@ -58,12 +38,11 @@ async fn init_db_in_dir(app_dir: PathBuf) -> Result<(), Box<dyn std::error::Erro
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL
         )
-        "#
-    )
-    .execute(&pool)
-    .await?;
+        "#,
+        [],
+    )?;
     
-    sqlx::query(
+    conn.execute(
         r#"
         CREATE TABLE IF NOT EXISTS messages (
             id TEXT PRIMARY KEY,
@@ -74,30 +53,27 @@ async fn init_db_in_dir(app_dir: PathBuf) -> Result<(), Box<dyn std::error::Erro
             created_at DATETIME NOT NULL,
             FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
         )
-        "#
-    )
-    .execute(&pool)
-    .await?;
+        "#,
+        [],
+    )?;
     
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id)"
-    )
-    .execute(&pool)
-    .await?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id)",
+        [],
+    )?;
     
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_chats_updated_at ON chats(updated_at DESC)"
-    )
-    .execute(&pool)
-    .await?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_chats_updated_at ON chats(updated_at DESC)",
+        [],
+    )?;
     
-    POOL.set(pool).expect("Failed to set database pool");
+    CONN.set(Mutex::new(conn)).expect("Failed to set database connection");
     
     eprintln!("Database initialized successfully");
     
     Ok(())
 }
 
-pub fn get_pool() -> &'static Pool<Sqlite> {
-    POOL.get().expect("Database pool not initialized")
+pub fn get_conn() -> std::sync::MutexGuard<'static, Connection> {
+    CONN.get().expect("Database not initialized").lock().expect("Failed to lock database")
 }
