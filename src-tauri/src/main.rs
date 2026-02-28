@@ -24,6 +24,7 @@ fn main() {
             tauri::async_runtime::block_on(async {
                 if let Err(e) = db::init_database(&app_handle).await {
                     eprintln!("Failed to initialize database: {}", e);
+                    // 数据库初始化失败不阻止应用启动
                 }
             });
 
