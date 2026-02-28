@@ -13,8 +13,12 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        target: [aarch64-apple-darwin, x86_64-apple-darwin]
-    name: Build macOS ${{ matrix.target == 'aarch64-apple-darwin' && 'Apple Silicon' || 'Intel' }}
+        include:
+          - target: aarch64-apple-darwin
+            arch: arm64
+          - target: x86_64-apple-darwin
+            arch: x64
+    name: Build macOS ${{ matrix.arch }}
     
     steps:
       - name: Checkout code
@@ -37,15 +41,19 @@ jobs:
         run: cargo install tauri-cli
 
       - name: Build Tauri app
-        run: cargo tauri build --target ${{ matrix.target }}
+        env:
+          CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER: aarch64-apple-darwin-clang
+          CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER: x86_64-apple-darwin-clang
+        run: |
+          rustup target add ${{ matrix.target }}
+          cargo tauri build --target ${{ matrix.target }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mybudy-macos-${{ matrix.target == 'aarch64-apple-darwin' && 'arm64' || 'x64' }}
+          name: mybudy-macos-${{ matrix.arch }}
           path: |
             src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
-            src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app
 
   build-linux:
     runs-on: ubuntu-22.04
